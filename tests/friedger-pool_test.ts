@@ -4,13 +4,15 @@ import {
   Chain,
   Account,
   types,
-} from "https://deno.land/x/clarinet@v0.5.2/index.ts";
-import { assertEquals } from "https://deno.land/std@0.90.0/testing/asserts.ts";
+} from "https://deno.land/x/clarinet@v0.6.0/index.ts";
+import { assertEquals } from "https://deno.land/std@0.95.0/testing/asserts.ts";
 
 Clarinet.test({
-  name: "Ensure that ",
+  name: "Ensure that invalid txs not accepted",
   async fn(chain: Chain, accounts: Map<string, Account>) {
     let wallet_1 = accounts.get("wallet_1")!;
+    const block1 = chain.mineBlock([]);
+    console.log(block1)
     let block = chain.mineBlock([
       Tx.contractCall(
         "friedger-pool",
@@ -19,7 +21,7 @@ Clarinet.test({
           // block
           types.tuple({
             header: "0x1234",
-            height: types.uint(100),
+            height: types.uint(block1.height),
           }),
           // tx
           "0x1234",

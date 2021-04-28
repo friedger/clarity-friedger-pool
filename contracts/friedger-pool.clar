@@ -22,7 +22,7 @@
       (ok (map-insert reward-txs height (list entry))))))
 
 (define-public (submit-reward-tx (block { header: (buff 80), height: uint }) (tx (buff 1024)) (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
-  (match (contract-call? .clarity-bitcoin was-tx-mined?  block tx proof)
+  (match (contract-call? .clarity-bitcoin was-tx-mined? (print block) tx proof)
     result
       (begin
         (asserts! result ERR_VERIFICATION_FAILED)
