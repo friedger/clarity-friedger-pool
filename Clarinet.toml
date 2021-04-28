@@ -1,0 +1,13 @@
+
+[project]
+name = "clarity-friedger-pool"
+
+[contracts.clarity-bitcoin]
+path = "contracts/clarity-bitcoin.clar"
+depends_on = []
+
+[contracts.friedger-pool]
+path = "contracts/friedger-pool.clar"
+depends_on = ["clarity-bitcoin"]
+
+[notebooks]
