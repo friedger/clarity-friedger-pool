@@ -15,7 +15,7 @@ Clarinet.test({
     console.log(block1)
     let block = chain.mineBlock([
       Tx.contractCall(
-        "friedger-pool",
+        "friedger-pool-audit",
         "submit-reward-tx",
         [
           // block
