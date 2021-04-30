@@ -44,12 +44,12 @@
 
 (define-private (pox-delegate-stx-and-stack (amount-ustx uint) (until-burn-ht (optional uint)) (locking-period uint))
   (begin
-    (let ((ignore-result-revoke (contract-call? .pox revoke-delegate-stx))
+    (let ((ignore-result-revoke (contract-call? 'ST000000000000000000002AMW42H.pox revoke-delegate-stx))
           (start-block-ht (+ burn-block-height u1)))
-      (match (contract-call? .pox delegate-stx amount-ustx pool-account until-burn-ht none)
+      (match (contract-call? 'ST000000000000000000002AMW42H.pox delegate-stx amount-ustx pool-account until-burn-ht none)
         success
           (let ((stacker tx-sender))
-            (match (as-contract (contract-call? .pox delegate-stack-stx stacker amount-ustx pool-pox-address start-block-ht locking-period))
+            (match (as-contract (contract-call? 'ST000000000000000000002AMW42H.pox delegate-stack-stx stacker amount-ustx pool-pox-address start-block-ht locking-period))
               stack-success (ok stack-success)
               stack-error (print (err (to-uint stack-error)))))
         error (err (to-uint error))))))
@@ -95,7 +95,7 @@
 (define-public (stack-aggregation-commit (reward-cycle uint))
   (let ((cycle-start (get-cycle-start reward-cycle)))
     (if (and (>= burn-block-height (- cycle-start u50)) (< burn-block-height cycle-start))
-      (match (as-contract (contract-call? .pox stack-aggregation-commit pool-pox-address reward-cycle))
+      (match (as-contract (contract-call? 'ST000000000000000000002AMW42H.pox stack-aggregation-commit pool-pox-address reward-cycle))
         success (begin
                   (unwrap! (payout tx-sender u1000000 reward-cycle) err-payout-failed)
                   (ok success))
@@ -109,7 +109,7 @@
   (match (var-get delegation-enabler)
     enabler (ok enabler)
     (let ((enabler tx-sender))
-      (unwrap! (as-contract (contract-call? .pox allow-contract-caller this-contract none)) err-allow-contract-caller-failed)
+      (unwrap! (as-contract (contract-call? 'ST000000000000000000002AMW42H.pox allow-contract-caller this-contract none)) err-allow-contract-caller-failed)
       (unwrap! (payout tx-sender u1000000 off-cycle-vault) err-payout-failed)
       (var-set delegation-enabler (some enabler))
       (ok enabler))))

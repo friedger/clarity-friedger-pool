@@ -16,6 +16,6 @@ depends_on = ["clarity-bitcoin"]
 
 [contracts.friedger-pool-admin]
 path = "contracts/friedger-pool-admin.clar"
-depends_on = ["pox"]
+depends_on = []
 
 [notebooks]

@@ -8,7 +8,7 @@ import {
 import { assertEquals } from "https://deno.land/std@0.95.0/testing/asserts.ts";
 
 Clarinet.test({
-  name: "Ensure that user can payin",
+  name: "Ensure that user can pay in",
   async fn(chain: Chain, accounts: Map<string, Account>) {
     let wallet_1 = accounts.get("wallet_1")!;
     let block = chain.mineBlock([
