@@ -20,7 +20,7 @@ Clarinet.test({
         [
           // block
           types.tuple({
-            header: "0x1234",
+            header: "0x0000000000000000000000000000000000000000000000000000000000000000",
             height: types.uint(block1.height),
           }),
           // tx
@@ -36,6 +36,6 @@ Clarinet.test({
       ),
     ]);
     assertEquals(block.height, 3);
-    block.receipts[0].result.expectOk();
+    assertEquals(block.receipts[0].result, "(err u2)");
   },
 });

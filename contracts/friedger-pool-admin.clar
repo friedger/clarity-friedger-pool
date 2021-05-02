@@ -36,11 +36,32 @@
     until-burn-ht: (optional uint),
     rewards: (optional uint)})
 
-(define-read-only (get-next-cycle)
-  u1)
 
-(define-read-only (get-cycle-start (cycle uint))
-  u1000)
+
+;; Backport of .pox's burn-height-to-reward-cycle
+(define-private (burn-height-to-reward-cycle (height uint))
+    (let (
+        (pox-info (unwrap-panic (contract-call? 'ST000000000000000000002AMW42H.pox get-pox-info)))
+    )
+    (/ (- height (get first-burnchain-block-height pox-info)) (get reward-cycle-length pox-info)))
+)
+
+;; Backport of .pox's reward-cycle-to-burn-height
+(define-private (reward-cycle-to-burn-height (cycle uint))
+    (let (
+        (pox-info (unwrap-panic (contract-call? 'ST000000000000000000002AMW42H.pox get-pox-info)))
+    )
+    (+ (get first-burnchain-block-height pox-info) (* cycle (get reward-cycle-length pox-info))))
+)
+
+;; What's the current PoX reward cycle?
+(define-private (current-pox-reward-cycle)
+    (burn-height-to-reward-cycle burn-block-height))
+
+
+(define-read-only (get-next-cycle)
+  (+ (current-pox-reward-cycle) u1)
+)
 
 (define-private (pox-delegate-stx-and-stack (amount-ustx uint) (until-burn-ht (optional uint)) (locking-period uint))
   (begin
@@ -93,7 +114,7 @@
 
 ;; anybody can close the pool within the window before the start of the next cycle
 (define-public (stack-aggregation-commit (reward-cycle uint))
-  (let ((cycle-start (get-cycle-start reward-cycle)))
+  (let ((cycle-start (reward-cycle-to-burn-height reward-cycle)))
     (if (and (>= burn-block-height (- cycle-start u50)) (< burn-block-height cycle-start))
       (match (as-contract (contract-call? 'ST000000000000000000002AMW42H.pox stack-aggregation-commit pool-pox-address reward-cycle))
         success (begin
