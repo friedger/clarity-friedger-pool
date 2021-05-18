@@ -741,7 +741,18 @@
 ;; Returns (err ERR-PROOF-TOO-SHORT) if the proof doesn't contain enough intermediate hash nodes in the merkle tree.
 (define-read-only (was-tx-mined? (block { header: (buff 80), height: uint }) (tx (buff 1024)) (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
     (if (verify-block-header (get header block) (get height block))
-        (verify-merkle-proof (get-reversed-txid tx) (get merkle-root (try! (parse-block-header (get header block)))) proof)
+        (verify-merkle-proof (get-reversed-txid tx) (reverse-buff32 (get merkle-root (try! (parse-block-header (get header block))))) proof)
+        (ok false)
+    )
+)
+
+(define-read-only (concat-header (block { version: (buff 4), parent: (buff 32), merkle-root: (buff 32), timestamp: (buff 4), nbits: (buff 4), nonce: (buff 4), height: uint }))
+  (concat (concat (concat (concat (concat (get version block) (get parent block)) (get merkle-root block)) (get timestamp block)) (get nbits block)) (get nonce block))
+)
+
+(define-read-only (was-tx-mined-2? (block { version: (buff 4), parent: (buff 32), merkle-root: (buff 32), timestamp: (buff 4), nbits: (buff 4), nonce: (buff 4), height: uint }) (tx (buff 1024)) (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
+    (if (verify-block-header (concat-header block) (get height block))
+        (verify-merkle-proof (get-reversed-txid tx) (reverse-buff32 (get merkle-root block)) proof)
         (ok false)
     )
 )

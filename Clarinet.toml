@@ -2,20 +2,22 @@
 [project]
 name = "clarity-friedger-pool"
 
-[contracts.pox]
-path = "contracts/mock-pox.clar"
-depends_on = []
-
 [contracts.clarity-bitcoin]
 path = "contracts/clarity-bitcoin.clar"
 depends_on = []
 
+
+[contracts.oracle]
+path = "contracts/oracle.clar"
+depends_on = []
+
+
 [contracts.friedger-pool-audit]
 path = "contracts/friedger-pool-audit.clar"
-depends_on = ["clarity-bitcoin"]
+depends_on = ["clarity-bitcoin", "oracle"]
 
 [contracts.friedger-pool-admin]
 path = "contracts/friedger-pool-admin.clar"
-depends_on = []
+depends_on = ["friedger-pool-audit"]
 
 [notebooks]

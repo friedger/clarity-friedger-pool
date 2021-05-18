@@ -1,0 +1,57 @@
+import {
+  contractPrincipalCV,
+  makeContractCall,
+  makeSTXTokenTransfer,
+  noneCV,
+  uintCV,
+} from "@stacks/transactions";
+import { keys } from "./config";
+import { poolAdmin, network, handleTransaction } from "./deploy";
+import BN from "bn.js";
+
+const { user } = keys;
+async function allowContractCaller(userData: { private: string }) {
+  const tx = await makeContractCall({
+    contractAddress: poolAdmin.address,
+    contractName: poolAdmin.name,
+    functionName: "allow-contract-caller",
+    functionArgs: [contractPrincipalCV(poolAdmin.address, poolAdmin.name)],
+    senderKey: userData.private,
+    network,
+  });
+  const result = await handleTransaction(tx);
+  return result;
+}
+
+async function payin(
+  userData: { private: string },
+  amount: number,
+  cycleId: number
+) {
+  const tx = await makeContractCall({
+    contractAddress: poolAdmin.address,
+    contractName: poolAdmin.name,
+    functionName: "payin",
+    functionArgs: [uintCV(amount), uintCV(cycleId)],
+    senderKey: userData.private,
+    network,
+  });
+  const result = await handleTransaction(tx);
+  return result;
+}
+
+async function fillContract(userData: { private: string }, amount: number) {
+  const tx = await makeSTXTokenTransfer({
+    amount: new BN(amount),
+    recipient: `${poolAdmin.address}.${poolAdmin.name}`,
+    senderKey: userData.private,
+    network,
+  });
+  const result = await handleTransaction(tx);
+  return result;
+}
+
+(async () => {
+  //allowContractCaller(user);
+  fillContract(user, 5000000);
+})();

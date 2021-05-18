@@ -1,0 +1,7 @@
+{
+  "devDependencies": {
+    "@stacks/network": "^1.5.0-alpha.0",
+    "@stacks/transactions": "^1.4.1",
+    "typescript": "^4.2.4"
+  }
+}
