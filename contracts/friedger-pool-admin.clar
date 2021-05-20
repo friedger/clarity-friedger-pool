@@ -155,12 +155,12 @@
       (ok enabler))))
 
 ;; submit reward btc transactions
-(define-public (submit-reward-tx (block { header: (buff 80), height: uint }) (tx (buff 1024)) (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
-  (match (contract-call? .friedger-pool-audit submit-reward-tx block tx proof)
-    success (begin
-      (unwrap! (payout tx-sender (* u2 user-compensation) (height-to-reward-cycle (get height block))) err-payout-failed)
-      (ok success))
-    error (err error)))
+;; (define-public (submit-reward-tx (block { header: (buff 80), height: uint }) (tx (buff 1024)) (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
+;;  (match (contract-call? .friedger-pool-audit submit-reward-tx block tx proof)
+;;    success (begin
+;;      (unwrap! (payout tx-sender (* u2 user-compensation) (height-to-reward-cycle (get height block))) err-payout-failed)
+;;      (ok success))
+;;    error (err error)))
 
 ;; request payout
 (define-public (claim-rewards (cycle uint))

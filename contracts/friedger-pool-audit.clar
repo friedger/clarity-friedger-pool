@@ -17,19 +17,24 @@
     (/ (- height (get first-burnchain-block-height pox-info)) (get reward-cycle-length pox-info)))
 )
 
+(define-private (find-pool-out-2 (entry {scriptPubKey: (buff 128), value: (buff 4)}) (result (optional {scriptPubKey: (buff 128), value: uint})))
+  (if (is-eq (get scriptPubKey entry) pool-pubscriptkey)
+    (some {scriptPubKey: (get scriptPubKey entry), value: (get uint32 (unwrap-panic (contract-call? .clarity-bitcoin read-uint32 {txbuff: (get value entry), index: u0})))})
+    result))
+
 (define-private (find-pool-out (entry {scriptPubKey: (buff 128), value: uint}) (result (optional {scriptPubKey: (buff 128), value: uint})))
   (if (is-eq (get scriptPubKey entry) pool-pubscriptkey)
     (some entry)
     result))
 
 (define-read-only (get-tx-value-for-pool-2 (tx {
-    version: uint,
+    version: (buff 4),
     ins: (list 8
-      {outpoint: {hash: (buff 32), index: uint}, scriptSig: (buff 256), sequence: uint}),
+      {outpoint: {hash: (buff 32), index: (buff 4)}, scriptSig: (buff 256), sequence: (buff 4)}),
     outs: (list 8
-      {value: uint, scriptPubKey: (buff 128)}),
-    locktime: uint}))
-    (ok (fold find-pool-out (get outs tx) none)))
+      {value: (buff 4), scriptPubKey: (buff 128)}),
+    locktime: (buff 4)}))
+    (ok (fold find-pool-out-2 (get outs tx) none)))
 
 (define-read-only (get-tx-value-for-pool (tx (buff 1024)))
   (let ((transaction (unwrap! (contract-call? .clarity-bitcoin parse-tx tx) ERR_FAILED_TO_PARSE_TX)))
@@ -47,21 +52,52 @@
       txs (ok (map-set reward-txs height (unwrap! (as-max-len? (append txs entry) u100) ERR_TOO_MANY_TXS)))
       (ok (map-insert reward-txs height (list entry))))))
 
+(define-read-only (concat-in (in {outpoint: {hash: (buff 32), index: (buff 4)}, scriptSig: (buff 256), sequence: (buff 4)}) (result (buff 1024)))
+  (unwrap-panic (as-max-len? (concat (concat (concat (concat result (get hash (get outpoint in))) (get index (get outpoint in))) (get scriptSig in)) (get sequence in)) u1024 )))
+
+(define-read-only (concat-ins (ins (list 8
+        {outpoint: {hash: (buff 32), index: (buff 4)}, scriptSig: (buff 256), sequence: (buff 4)})))
+       (unwrap-panic (as-max-len? (fold concat-in ins 0x) u1024)))
+
+(define-read-only (concat-out (out {value: (buff 4), scriptPubKey: (buff 128)}) (result (buff 1024)))
+  (unwrap-panic (as-max-len? (concat (concat result (get value out)) (get scriptPubKey out)) u1024)))
+
+(define-read-only (concat-outs (outs (list 8
+        {value: (buff 4), scriptPubKey: (buff 128)})))
+       (unwrap-panic (as-max-len?  (fold concat-out outs 0x) u1024)))
+
+(define-read-only (concat-tx (tx {version: (buff 4),
+      ins: (list 8
+        {outpoint: {hash: (buff 32), index: (buff 4)}, scriptSig: (buff 256), sequence: (buff 4)}),
+      outs: (list 8
+        {value: (buff 4), scriptPubKey: (buff 128)}),
+      locktime: (buff 4)}))
+ (unwrap-panic (as-max-len?  (concat (concat (concat (get version tx) (concat-ins (get ins tx))) (concat-outs (get outs tx))) (get locktime tx)) u1024)))
+
 ;; any user can submit a tx that contains payments into the pool's address
 ;; the value of the tx is added to the block
-(define-public (submit-reward-tx (block { header: (buff 80), height: uint }) (tx (buff 1024)) (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
-  (match (contract-call? .clarity-bitcoin was-tx-mined? block tx proof)
-    result
-      (begin
-        (asserts! result ERR_VERIFICATION_FAILED)
-        (let ((pool-out (unwrap! (unwrap! (get-tx-value-for-pool tx) ERR_FAILED_TO_PARSE_TX) ERR_TX_NOT_FOR_POOL)))
-            ;; add tx value to corresponding cycle
-            (match (map-add-tx (get height block) tx (get value pool-out))
-              result-map-add (begin
-                (asserts! result-map-add ERR_TX_ADD_FAILED)
-                (ok true))
-              error-map-add (err error-map-add))))
-    error (err error)))
+(define-public (submit-reward-tx
+    (block { version: (buff 4), parent: (buff 32), merkle-root: (buff 32), timestamp: (buff 4), nbits: (buff 4), nonce: (buff 4), height: uint })
+    (tx {version: (buff 4),
+      ins: (list 8
+        {outpoint: {hash: (buff 32), index: (buff 4)}, scriptSig: (buff 256), sequence: (buff 4)}),
+      outs: (list 8
+        {value: (buff 4), scriptPubKey: (buff 128)}),
+      locktime: (buff 4)})
+    (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
+  (let ((tx-buff (concat-tx tx)))
+    (match (contract-call? .clarity-bitcoin was-tx-mined-2? block tx-buff proof)
+      result
+        (begin
+          (asserts! result ERR_VERIFICATION_FAILED)
+          (let ((pool-out (unwrap! (unwrap! (get-tx-value-for-pool-2 tx) ERR_FAILED_TO_PARSE_TX) ERR_TX_NOT_FOR_POOL)))
+              ;; add tx value to corresponding cycle
+              (match (map-add-tx (get height block) tx-buff (get value pool-out))
+                result-map-add (begin
+                  (asserts! result-map-add ERR_TX_ADD_FAILED)
+                  (ok true))
+                error-map-add (err error-map-add))))
+      error (err error))))
 
 (define-read-only (get-rewards (cycle uint))
   (default-to u0 (map-get? rewards-per-cycle cycle)))

@@ -19,12 +19,22 @@ Clarinet.test({
         [
           // block
           types.tuple({
-            header:
-              "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "merkle-root": "0x1234",
+            nbits: "0x1234",
+            nonce: "0x1234",
+            parent: "0x123456",
+            timestamp: "0x1234",
+            version: "0x1234",
             height: types.uint(block1.height),
           }),
           // tx
-          "0x1234",
+          types.tuple({
+            ins: types.list([]),
+            outs: types.list([]),
+            locktime: "0x1234",
+            version: "0x1234",
+          }),
+
           // proof
           types.tuple({
             "tx-index": types.uint(1),
@@ -53,6 +63,9 @@ Clarinet.test({
     ]);
     assertEquals(block.height, 3);
     assertEquals(block.receipts[0].result, "(err u2)");
-    assertEquals(block.receipts[1].result, "(ok (some {scriptPubKey: 0x76a914c70e1ca5a5ef633fe5464821ca421c173997f38888ac, value: u10000}))");
+    assertEquals(
+      block.receipts[1].result,
+      "(ok (some {scriptPubKey: 0x76a914c70e1ca5a5ef633fe5464821ca421c173997f38888ac, value: u10000}))"
+    );
   },
 });

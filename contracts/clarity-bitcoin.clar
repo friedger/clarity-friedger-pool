@@ -752,7 +752,7 @@
 
 (define-read-only (was-tx-mined-2? (block { version: (buff 4), parent: (buff 32), merkle-root: (buff 32), timestamp: (buff 4), nbits: (buff 4), nonce: (buff 4), height: uint }) (tx (buff 1024)) (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
     (if (verify-block-header (concat-header block) (get height block))
-        (verify-merkle-proof (get-reversed-txid tx) (reverse-buff32 (get merkle-root block)) proof)
-        (ok false)
+        (verify-merkle-proof (get-reversed-txid tx) (get merkle-root block) proof)
+        (err u1)
     )
 )
