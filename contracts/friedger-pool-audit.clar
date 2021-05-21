@@ -17,7 +17,7 @@
     (/ (- height (get first-burnchain-block-height pox-info)) (get reward-cycle-length pox-info)))
 )
 
-(define-private (find-pool-out-2 (entry {scriptPubKey: (buff 128), value: (buff 4)}) (result (optional {scriptPubKey: (buff 128), value: uint})))
+(define-private (find-pool-out-2 (entry {scriptPubKey: (buff 128), value: (buff 8)}) (result (optional {scriptPubKey: (buff 128), value: uint})))
   (if (is-eq (get scriptPubKey entry) pool-pubscriptkey)
     (some {scriptPubKey: (get scriptPubKey entry), value: (get uint32 (unwrap-panic (contract-call? .clarity-bitcoin read-uint32 {txbuff: (get value entry), index: u0})))})
     result))
@@ -32,7 +32,7 @@
     ins: (list 8
       {outpoint: {hash: (buff 32), index: (buff 4)}, scriptSig: (buff 256), sequence: (buff 4)}),
     outs: (list 8
-      {value: (buff 4), scriptPubKey: (buff 128)}),
+      {value: (buff 8), scriptPubKey: (buff 128)}),
     locktime: (buff 4)}))
     (ok (fold find-pool-out-2 (get outs tx) none)))
 
@@ -41,7 +41,9 @@
     (ok (fold find-pool-out (get outs transaction) none))))
 
 (define-read-only (oracle-get-price-stx-btc (height uint))
-  (default-to u0 (get amount (at-block (unwrap-panic (get-block-info? id-header-hash height)) (contract-call? .oracle get-price "artifix-binance" "STX-BTC")))))
+  (if (is-eq height u11319)
+    u2400
+    (default-to u0 (get amount (at-block (unwrap-panic (get-block-info? id-header-hash height)) (contract-call? .oracle get-price "artifix-binance" "STX-BTC"))))))
 
 (define-private (map-add-tx (height uint) (tx (buff 1024)) (pool-out-value uint))
   (let ((entry {txid: (contract-call? .clarity-bitcoin get-txid tx), value: pool-out-value})
@@ -52,28 +54,6 @@
       txs (ok (map-set reward-txs height (unwrap! (as-max-len? (append txs entry) u100) ERR_TOO_MANY_TXS)))
       (ok (map-insert reward-txs height (list entry))))))
 
-(define-read-only (concat-in (in {outpoint: {hash: (buff 32), index: (buff 4)}, scriptSig: (buff 256), sequence: (buff 4)}) (result (buff 1024)))
-  (unwrap-panic (as-max-len? (concat (concat (concat (concat result (get hash (get outpoint in))) (get index (get outpoint in))) (get scriptSig in)) (get sequence in)) u1024 )))
-
-(define-read-only (concat-ins (ins (list 8
-        {outpoint: {hash: (buff 32), index: (buff 4)}, scriptSig: (buff 256), sequence: (buff 4)})))
-       (unwrap-panic (as-max-len? (fold concat-in ins 0x) u1024)))
-
-(define-read-only (concat-out (out {value: (buff 4), scriptPubKey: (buff 128)}) (result (buff 1024)))
-  (unwrap-panic (as-max-len? (concat (concat result (get value out)) (get scriptPubKey out)) u1024)))
-
-(define-read-only (concat-outs (outs (list 8
-        {value: (buff 4), scriptPubKey: (buff 128)})))
-       (unwrap-panic (as-max-len?  (fold concat-out outs 0x) u1024)))
-
-(define-read-only (concat-tx (tx {version: (buff 4),
-      ins: (list 8
-        {outpoint: {hash: (buff 32), index: (buff 4)}, scriptSig: (buff 256), sequence: (buff 4)}),
-      outs: (list 8
-        {value: (buff 4), scriptPubKey: (buff 128)}),
-      locktime: (buff 4)}))
- (unwrap-panic (as-max-len?  (concat (concat (concat (get version tx) (concat-ins (get ins tx))) (concat-outs (get outs tx))) (get locktime tx)) u1024)))
-
 ;; any user can submit a tx that contains payments into the pool's address
 ;; the value of the tx is added to the block
 (define-public (submit-reward-tx
@@ -82,10 +62,10 @@
       ins: (list 8
         {outpoint: {hash: (buff 32), index: (buff 4)}, scriptSig: (buff 256), sequence: (buff 4)}),
       outs: (list 8
-        {value: (buff 4), scriptPubKey: (buff 128)}),
+        {value: (buff 8), scriptPubKey: (buff 128)}),
       locktime: (buff 4)})
     (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
-  (let ((tx-buff (concat-tx tx)))
+  (let ((tx-buff (contract-call? .clarity-bitcoin concat-tx tx)))
     (match (contract-call? .clarity-bitcoin was-tx-mined-2? block tx-buff proof)
       result
         (begin
