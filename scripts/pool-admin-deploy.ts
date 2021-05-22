@@ -1,8 +1,8 @@
 import { deployContract, contractAddress } from "./deploy";
 
-const clarityBitcoinSuffix = "-v3";
+const clarityBitcoinSuffix = "-v4-x";
 const oracleSuffix = "";
-const poolAuditSuffix = "-v5";
+const poolAuditSuffix = "-v6-x";
 const poolAdminSuffix = "-v3";
 
 (async () => {

@@ -1,0 +1,5 @@
+(contract-call? 'ST1HTBVD3JG9C05J7HBJTHGR0GGW7KXW28M5JS8QE.clarity-bitcoin verify-block-header (contract-call? 'ST1HTBVD3JG9C05J7HBJTHGR0GGW7KXW28M5JS8QE.clarity-bitcoin concat-header (tuple (height u11319) (merkle-root
+0xed853698ef70b79478b6c01e31efdfff6fac38606661e3aa7b30d1b6fe6bf65a) (nbits
+0x0afd2219) (nonce 0x6e2d6012) (parent
+0xb9d30838796e6ea7ff4b441ca1d705c229f3492cfdddcd186b21000000000000) (timestamp
+0xbec89660) (version 0x00200020))) u11319)
