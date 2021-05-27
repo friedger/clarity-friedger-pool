@@ -79,6 +79,20 @@
                 error-map-add (err error-map-add))))
       error (err error))))
 
+;; any user can submit a tx that contains payments into the pool's address
+;; the value of the tx is added to the block
+(define-public (report-btc-tx
+    (block { version: (buff 4), parent: (buff 32), merkle-root: (buff 32), timestamp: (buff 4), nbits: (buff 4), nonce: (buff 4), height: uint })
+    (tx {version: (buff 4),
+      ins: (list 8
+        {outpoint: {hash: (buff 32), index: (buff 4)}, scriptSig: (buff 256), sequence: (buff 4)}),
+      outs: (list 8
+        {value: (buff 8), scriptPubKey: (buff 128)}),
+      locktime: (buff 4)})
+    (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
+  (let ((tx-buff (contract-call? .clarity-bitcoin concat-tx tx)))
+    (contract-call? .clarity-bitcoin was-tx-mined-2? block tx-buff proof)))
+
 (define-read-only (get-rewards (cycle uint))
   (default-to u0 (map-get? rewards-per-cycle cycle)))
 
