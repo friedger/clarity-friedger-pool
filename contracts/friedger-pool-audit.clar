@@ -40,19 +40,26 @@
   (let ((transaction (unwrap! (contract-call? .clarity-bitcoin parse-tx tx) ERR_FAILED_TO_PARSE_TX)))
     (ok (fold find-pool-out (get outs transaction) none))))
 
-(define-read-only (oracle-get-price-stx-btc (height uint))
-  (if (is-eq height u11319)
-    u2400
-    (default-to u0 (get amount (at-block (unwrap-panic (get-block-info? id-header-hash height)) (contract-call? .oracle get-price "artifix-binance" "STX-BTC"))))))
-
-(define-private (map-add-tx (height uint) (tx (buff 1024)) (pool-out-value uint))
+(define-private (map-add-tx (height uint) (tx (buff 1024)) (pool-out-value uint) (price uint))
   (let ((entry {txid: (contract-call? .clarity-bitcoin get-txid tx), value: pool-out-value})
-    (price (oracle-get-price-stx-btc height))
     (cycle (burn-height-to-reward-cycle height)))
     (map-set rewards-per-cycle cycle (+ (/ pool-out-value price) (default-to u0 (map-get? rewards-per-cycle cycle))))
     (match (map-get? reward-txs height)
       txs (ok (map-set reward-txs height (unwrap! (as-max-len? (append txs entry) u100) ERR_TOO_MANY_TXS)))
       (ok (map-insert reward-txs height (list entry))))))
+
+
+(define-read-only (oracle-by-hash (id-header-hash (buff 32)))
+  (get amount (print (at-block id-header-hash (contract-call? .oracle get-price "artifix-binance" "STX-BTC")))))
+
+(define-read-only (oracle-get-price-stx-btc (height uint))
+  (match (get-block-info? id-header-hash height)
+    hash (oracle-by-hash hash)
+    (match (get-block-info? id-header-hash (- height u1))
+      hash-1 (oracle-by-hash hash-1)
+      (match (get-block-info? id-header-hash (- height u2))
+        hash-2 (oracle-by-hash hash-2)
+        none))))
 
 ;; any user can submit a tx that contains payments into the pool's address
 ;; the value of the tx is added to the block
@@ -64,20 +71,22 @@
       outs: (list 8
         {value: (buff 8), scriptPubKey: (buff 128)}),
       locktime: (buff 4)})
-    (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
+    (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint })
+    )
   (let ((tx-buff (contract-call? .clarity-bitcoin concat-tx tx)))
     (match (contract-call? .clarity-bitcoin was-tx-mined-2? block tx-buff proof)
       result
         (begin
           (asserts! result ERR_VERIFICATION_FAILED)
-          (let ((pool-out (unwrap! (unwrap! (get-tx-value-for-pool-2 tx) ERR_FAILED_TO_PARSE_TX) ERR_TX_NOT_FOR_POOL)))
+          (let ((pool-out (unwrap! (unwrap! (get-tx-value-for-pool-2 tx) ERR_FAILED_TO_PARSE_TX) ERR_TX_NOT_FOR_POOL))
+            (price (unwrap! (oracle-get-price-stx-btc (get height block)) ERR_FAILED_TO_GET_PRICE)))
               ;; add tx value to corresponding cycle
-              (match (map-add-tx (get height block) tx-buff (get value pool-out))
+              (match (map-add-tx (get height block) tx-buff (get value pool-out) price)
                 result-map-add (begin
                   (asserts! result-map-add ERR_TX_ADD_FAILED)
                   (ok true))
                 error-map-add (err error-map-add))))
-      error (err error))))
+      error (err (* error u1000)))))
 
 ;; any user can submit a tx that contains payments into the pool's address
 ;; the value of the tx is added to the block
@@ -106,3 +115,4 @@
 (define-constant ERR_TX_NOT_FOR_POOL (err u4))
 (define-constant ERR_TOO_MANY_TXS (err u5))
 (define-constant ERR_TX_ADD_FAILED (err u6))
+(define-constant ERR_FAILED_TO_GET_PRICE (err u7))

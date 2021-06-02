@@ -639,13 +639,10 @@
 ;; Verify that a block header hashes to a burnchain header hash at a given height.
 ;; Returns true if so; false if not.
 (define-read-only (verify-block-header (headerbuff (buff 80)) (expected-block-height uint))
-    (if (is-eq expected-block-height u11319)
-      true
-      (match (get-block-info? burnchain-header-hash expected-block-height)
-          bhh (is-eq bhh (reverse-buff32 (sha256 (sha256 headerbuff))))
-          false
-      ))
-)
+    (match (get-block-info? burnchain-header-hash expected-block-height)
+        bhh (is-eq bhh (reverse-buff32 (sha256 (sha256 headerbuff))))
+        false
+    ))
 
 ;; Get the txid of a transaction, but big-endian.
 ;; This is the reverse of what you see on block explorers.

@@ -1,8 +1,8 @@
 import { deployContract, contractAddress } from "./deploy";
 
-const clarityBitcoinSuffix = "-v4-x";
+const clarityBitcoinSuffix = "-v4";
 const oracleSuffix = "";
-const poolAuditSuffix = "-v7-x";
+const poolAuditSuffix = "-v8";
 const poolAdminSuffix = "-v3";
 
 (async () => {
@@ -17,7 +17,7 @@ const poolAdminSuffix = "-v3";
           /\.clarity-bitcoin/g,
           `'${contractAddress}.clarity-bitcoin${clarityBitcoinSuffix}`
         )
-        .replace(/\.oracle/g, `'${contractAddress}.oracle${oracleSuffix}`);
+        .replace(/\.oracle/g, `'STZ0RAC1EFTH949T4W2SYY6YBHJRMAF4ED5QB123.oracle-v1`);
       console.log(result);
       return result;
     },
