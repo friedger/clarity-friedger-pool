@@ -13,8 +13,8 @@ import { StacksTestnet } from "@stacks/network";
 import * as fs from "fs";
 const fetch = require("node-fetch");
 
-import { ADDR1, testnetKeyMap } from "./mocknet";
-import { keys as configKeys } from "./config";
+import { ADDR1, ADDR2, testnetKeyMap } from "./mocknet";
+import { configKeys } from "./config";
 
 const BigNum = require("bn.js");
 
@@ -22,12 +22,9 @@ export const local = false;
 export const mocknet = false;
 export const noSidecar = false;
 
-export const poolAdmin = {
-  address: "ST33GW755MQQP6FZ58S423JJ23GBKK5ZKH3MGR55N",
-  name: "pool-admin-v1",
-};
-
-const STACKS_CORE_API_URL = local
+const STACKS_CORE_API_URL = mocknet
+  ? "http://localhost:3999"
+  : local
   ? noSidecar
     ? "http://localhost:21443"
     : "http://localhost:3999"
@@ -43,10 +40,8 @@ network.coreApiUrl = STACKS_CORE_API_URL;
 
 /* Replace with your private key for testnet deployment */
 
-const keys = mocknet ? testnetKeyMap[ADDR1] : configKeys.user;
-
-export const secretKey = keys.private;
-export const contractAddress = keys.stacks;
+export const secretKey = configKeys(mocknet).user.private;
+export const contractAddress = configKeys(mocknet).user.stacks;
 
 //
 export async function handleTransaction(transaction: StacksTransaction) {

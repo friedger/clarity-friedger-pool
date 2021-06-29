@@ -3,5 +3,9 @@
     "@stacks/network": "^1.5.0-alpha.0",
     "@stacks/transactions": "^1.4.1",
     "typescript": "^4.2.4"
+  },
+  "dependencies": {
+    "@types/node-fetch": "^2.5.10",
+    "node-fetch": "^2.6.1"
   }
 }

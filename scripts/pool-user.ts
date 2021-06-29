@@ -1,17 +1,22 @@
 import {
+  BufferArray,
+  bufferCV,
   contractPrincipalCV,
   createSTXPostCondition,
   FungibleConditionCode,
   makeContractCall,
   noneCV,
   PostConditionMode,
+  tupleCV,
   uintCV,
 } from "@stacks/transactions";
-import { keys } from "./config";
-import { handleTransaction, network, poolAdmin } from "./deploy";
+import { configKeys } from "./config";
+import { handleTransaction, mocknet, network, STACKS_API_URL } from "./deploy";
 import BN from "bn.js";
+import fetch from "node-fetch";
+import { poolAdmin } from "./pool-admin-utils";
 
-const { user } = keys;
+const { user } = configKeys(mocknet);
 
 const mainnet = false;
 export const poxContractAddress = mainnet
@@ -46,8 +51,11 @@ async function delegatedlyStackStx(
       contractPrincipalCV(poolAdmin.address, poolAdmin.name),
       noneCV(),
       noneCV(),
-      noneCV(),
-      uintCV(4),
+      tupleCV({
+        version: bufferCV(Buffer.from("")),
+        hashbytes: bufferCV(Buffer.from("")),
+      }),
+      uintCV(12),
     ],
     senderKey: userData.private,
     network,
@@ -58,7 +66,7 @@ async function delegatedlyStackStx(
 
 async function stackAggregateCommit(
   userData: { private: string },
-  cycleId: number
+  cycleId: number,
 ) {
   const tx = await makeContractCall({
     contractAddress: poolAdmin.address,
@@ -79,8 +87,17 @@ async function stackAggregateCommit(
   const result = await handleTransaction(tx);
   return result;
 }
+
+async function fetchCylceId() {
+  const result = await fetch(`${STACKS_API_URL}/v2/pox`);
+  const poxInfo = await result.json();
+  return poxInfo.next_cycle.id;
+}
+
 (async () => {
   //await allowContractCaller(user);
-  //await delegatedlyStackStx(user, 530000000);
-  await stackAggregateCommit(user, 863);
+  //await delegatedlyStackStx(user, mocknet ? 90_000_000 : 520_000_000); // in stx
+  const cycleId = await fetchCylceId();
+  console.log(cycleId);
+  await stackAggregateCommit(user, cycleId);
 })();

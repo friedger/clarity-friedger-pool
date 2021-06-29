@@ -5,11 +5,12 @@ import {
   noneCV,
   uintCV,
 } from "@stacks/transactions";
-import { keys } from "./config";
-import { poolAdmin, network, handleTransaction } from "./deploy";
+import { network, handleTransaction, mocknet } from "./deploy";
+import { configKeys } from "./config";
 import BN from "bn.js";
+import { poolAdmin } from "./pool-admin-utils";
 
-const { user } = keys;
+const { user } = configKeys(mocknet);
 async function allowContractCaller(userData: { private: string }) {
   const tx = await makeContractCall({
     contractAddress: poolAdmin.address,
@@ -52,6 +53,6 @@ async function fillContract(userData: { private: string }, amount: number) {
 }
 
 (async () => {
-  //allowContractCaller(user);
-  fillContract(user, 5000000);
+  await allowContractCaller(user);
+  await fillContract(user, 5000000);
 })();

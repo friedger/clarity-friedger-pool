@@ -636,10 +636,13 @@
     }))
 )
 
+(define-read-only (get-bc-h-hash (bh uint))
+  (get-block-info? burnchain-header-hash bh))
+
 ;; Verify that a block header hashes to a burnchain header hash at a given height.
 ;; Returns true if so; false if not.
 (define-read-only (verify-block-header (headerbuff (buff 80)) (expected-block-height uint))
-    (match (get-block-info? burnchain-header-hash expected-block-height)
+    (match (get-bc-h-hash expected-block-height)
         bhh (is-eq bhh (reverse-buff32 (sha256 (sha256 headerbuff))))
         false
     ))
@@ -738,7 +741,7 @@
 ;; Returns (ok true) if the proof checks out.
 ;; Returns (ok false) if not.
 ;; Returns (err ERR-PROOF-TOO-SHORT) if the proof doesn't contain enough intermediate hash nodes in the merkle tree.
-(define-read-only (was-tx-mined? (block { header: (buff 80), height: uint }) (tx (buff 1024)) (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
+(define-read-only (was-tx-mined-compact (block { header: (buff 80), height: uint }) (tx (buff 1024)) (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
     (if (verify-block-header (get header block) (get height block))
         (verify-merkle-proof (get-reversed-txid tx) (reverse-buff32 (get merkle-root (try! (parse-block-header (get header block))))) proof)
         (ok false)
@@ -774,7 +777,7 @@
       locktime: (buff 4)}))
  (unwrap-panic (as-max-len?  (concat (concat (concat (get version tx) (concat-ins (get ins tx))) (concat-outs (get outs tx))) (get locktime tx)) u1024)))
 
-(define-read-only (was-tx-mined-2? (block { version: (buff 4), parent: (buff 32), merkle-root: (buff 32), timestamp: (buff 4), nbits: (buff 4), nonce: (buff 4), height: uint }) (tx (buff 1024)) (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
+(define-read-only (was-tx-mined (block { version: (buff 4), parent: (buff 32), merkle-root: (buff 32), timestamp: (buff 4), nbits: (buff 4), nonce: (buff 4), height: uint }) (tx (buff 1024)) (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
     (if (verify-block-header (concat-header block) (get height block))
         (verify-merkle-proof (get-reversed-txid tx) (get merkle-root block) proof)
         (err u1)

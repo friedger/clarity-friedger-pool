@@ -6,11 +6,17 @@ name = "clarity-friedger-pool"
 path = "contracts/clarity-bitcoin.clar"
 depends_on = []
 
-
 [contracts.oracle]
 path = "contracts/oracle.clar"
 depends_on = []
 
+[contracts.btc-stx-swap]
+path = "contracts/btc-stx-swap.clar"
+depends_on = ["clarity-bitcoin", "oracle"]
+
+[contracts.friedger-pool-audit-compact]
+path = "contracts/friedger-pool-audit-compact.clar"
+depends_on = ["clarity-bitcoin", "oracle"]
 
 [contracts.friedger-pool-audit]
 path = "contracts/friedger-pool-audit.clar"

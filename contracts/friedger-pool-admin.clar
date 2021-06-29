@@ -1,6 +1,7 @@
 ;; Configuration
 (define-constant user-compensation u1000000) ;; 1 STX
-;; address ST33GW755MQQP6FZ58S423JJ23GBKK5ZKH3MGR55N
+;; stx address: ST33GW755MQQP6FZ58S423JJ23GBKK5ZKH3MGR55N
+;; btx address: myfTfju9XSMRusaY2qTitSEMSchsWRA441
 (define-constant pool-pox-address {hashbytes: 0xc70e1ca5a5ef633fe5464821ca421c173997f388, version: 0x00})
 
 ;;
@@ -40,7 +41,7 @@
     stacked-ustx: uint,
     until-burn-ht: (optional uint),
     rewards: (optional uint)})
-
+(define-map unaudited-rewards uint uint)
 
 ;; Backport of .pox's burn-height-to-reward-cycle
 (define-read-only (burn-height-to-reward-cycle (height uint))
@@ -123,7 +124,7 @@
 (define-public (delegate-stx (amount-ustx uint) (stacker principal)
                   (until-burn-ht (optional uint))
                   (pox-addr (optional (tuple (hashbytes (buff 20)) (version (buff 1)))))
-                  (user-addr (optional (tuple (hashbytes (buff 20)) (version (buff 1)))))
+                  (user-addr (tuple (hashbytes (buff 20)) (version (buff 1))))
                   (locking-period uint))
   (let ((cycle (get-next-cycle)))
     (asserts! (is-eq (some stacker) (var-get pool-account)) err-delegate-invalid-stacker)
@@ -154,22 +155,43 @@
       (var-set pool-account (some this-contract))
       (ok enabler))))
 
-;; submit reward btc transactions
-;; (define-public (submit-reward-tx (block { header: (buff 80), height: uint }) (tx (buff 1024)) (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
-;;  (match (contract-call? .friedger-pool-audit submit-reward-tx block tx proof)
-;;    success (begin
-;;      (unwrap! (payout tx-sender (* u2 user-compensation) (height-to-reward-cycle (get height block))) err-payout-failed)
-;;      (ok success))
-;;    error (err error)))
+;;submit reward btc transactions
+(define-public (submit-reward-tx (block { version: (buff 4), parent: (buff 32), merkle-root: (buff 32), timestamp: (buff 4), nbits: (buff 4), nonce: (buff 4), height: uint })
+    (tx {version: (buff 4),
+      ins: (list 8
+        {outpoint: {hash: (buff 32), index: (buff 4)}, scriptSig: (buff 256), sequence: (buff 4)}),
+      outs: (list 8
+        {value: (buff 8), scriptPubKey: (buff 128)}),
+      locktime: (buff 4)})
+    (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
+  (match (contract-call? .friedger-pool-audit submit-reward-tx block tx proof)
+    success (begin
+      (unwrap! (payout tx-sender (* u2 user-compensation) (height-to-reward-cycle (get height block))) err-payout-failed)
+      (ok success))
+    error (err error)))
+
+(define-public (submit-unaudited-rewards (amount uint) (cycle uint))
+  (begin
+    (asserts! (> amount u0) err-non-positive-amount)
+    (map-set unaudited-rewards cycle (+ (get-unaudited-rewards cycle) amount))
+    (stx-transfer? amount tx-sender (as-contract tx-sender))))
 
 ;; request payout
 (define-public (claim-rewards (cycle uint))
-  (let ((current-cycle (print (current-pox-reward-cycle))))
+  (let ((current-cycle (print (current-pox-reward-cycle)))
+    (amount (unwrap! (get-rewards tx-sender cycle) (err u0))))
     (asserts! (> current-cycle cycle) err-payout-too-early)
-    (let ((total (unwrap! (map-get? total-stacked-stxs cycle) err-invalid-cycle))
-          (user-stxs (unwrap! (get stacked-ustx (map-get? stacked-stxs {stacker: tx-sender, cycle: cycle})) err-payout-no-rewards))
-          (rewards (contract-call? .friedger-pool-audit get-rewards cycle)))
-      (payout tx-sender (/ (* user-stxs rewards) total) cycle))))
+    (payout tx-sender amount cycle)))
+
+(define-read-only (get-unaudited-rewards (cycle uint))
+  (default-to u0 (map-get? unaudited-rewards cycle)))
+
+;; check rewards balance
+(define-read-only (get-rewards (user principal) (cycle uint))
+  (let ((total (unwrap! (map-get? total-stacked-stxs cycle) err-invalid-cycle))
+          (user-stxs (unwrap! (get stacked-ustx (map-get? stacked-stxs {stacker: user, cycle: cycle})) err-payout-no-rewards))
+          (rewards (+ (contract-call? .friedger-pool-audit get-rewards cycle) (get-unaudited-rewards cycle))))
+    (ok (/ (* user-stxs rewards) total))))
 
 (define-read-only (get-vault-balance (cycle uint))
   (- (default-to 0 (map-get? vaults cycle))))
@@ -188,11 +210,12 @@
 (define-constant err-commit-not-allowed-now (err u604))
 (define-constant err-already-stacked (err u605))
 (define-constant err-invalid-cycle (err u606))
-(define-constant err-map-function-failed (err u606))
+(define-constant err-map-function-failed (err u607))
 (define-constant err-payout-failed (err u701))
 (define-constant err-payout-too-early (err u702))
 (define-constant err-payout-no-rewards (err u703))
-(define-constant err-pool-not-active (err u1000))
+(define-constant err-non-positive-amount (err u704))
+(define-constant err-pool-not-active (err u999))
 
 (define-private (err-pox-stack-aggregation-commit (code int))
   (err (to-uint (* 1000 code))))

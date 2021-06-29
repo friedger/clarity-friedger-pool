@@ -4,8 +4,8 @@ import {
   Chain,
   Account,
   types,
-} from "https://deno.land/x/clarinet@v0.6.0/index.ts";
-import { assertEquals } from "https://deno.land/std@0.95.0/testing/asserts.ts";
+  assertEquals,
+} from "../src/deps.ts";
 
 Clarinet.test({
   name: "Ensure that user can pay in",
@@ -54,9 +54,9 @@ Clarinet.test({
         [
           types.uint(1000000),
           types.principal(deployer.address + ".friedger-pool-admin"),
-          types.some(types.uint(100)),
+          types.some(types.uint(450)),
           types.none(),
-          types.none(),
+          types.tuple({ version: "0x01", hashbytes: "0x12345678901234567890" }),
           types.uint(2),
         ],
         wallet_1.address
@@ -64,9 +64,12 @@ Clarinet.test({
     ]);
     assertEquals(block.height, 2);
     block.receipts[0].result.expectOk();
-    //block.receipts[1].result.expectOk(); // fails due to https://github.com/lgalabru/clarinet/issues/16
-    //block.receipts[2].result.expectOk();
-    //assertEquals(block.receipts[2].result, "ok")
+    block.receipts[1].result.expectOk();
+    (block.receipts[2].result
+      .expectOk()
+      .expectTuple() as any)
+      ["unlock-burn-height"].expectUint(450);
+
     assertEquals(
       chain.callReadOnlyFn(
         "friedger-pool-admin",
@@ -106,6 +109,6 @@ Clarinet.test({
 
     assertEquals(block.height, 153);
     block.receipts[0].result.expectOk();
-    assertEquals(block.receipts[1].result, "(err u606)");
+    assertEquals(block.receipts[1].result, "(err u0)"); // no rewards
   },
 });

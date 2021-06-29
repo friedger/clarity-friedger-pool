@@ -9,36 +9,43 @@
 
 (define-map rewards-per-cycle uint uint)
 
+(define-data-var last-price (optional (tuple (amount uint) (height uint) (timestamp uint)))
+  (contract-call? .oracle get-price "artifix-binance" "STX-BTC"))
+
 ;; Backport of .pox's burn-height-to-reward-cycle
-(define-private (burn-height-to-reward-cycle (height uint))
+(define-read-only (burn-height-to-reward-cycle (height uint))
     (let (
         (pox-info (unwrap-panic (contract-call? 'ST000000000000000000002AMW42H.pox get-pox-info)))
     )
     (/ (- height (get first-burnchain-block-height pox-info)) (get reward-cycle-length pox-info)))
 )
 
-(define-private (find-pool-out-2 (entry {scriptPubKey: (buff 128), value: (buff 8)}) (result (optional {scriptPubKey: (buff 128), value: uint})))
+(define-private (add-value (out {scriptPubKey: (buff 128), value: uint}) (result uint))
+  (+ (get value out) result)
+)
+
+(define-private (find-pool-outs (entry {scriptPubKey: (buff 128), value: (buff 8)}) (result (list 8 {scriptPubKey: (buff 128), value: uint})))
   (if (is-eq (get scriptPubKey entry) pool-pubscriptkey)
-    (some {scriptPubKey: (get scriptPubKey entry), value: (get uint32 (unwrap-panic (contract-call? .clarity-bitcoin read-uint32 {txbuff: (get value entry), index: u0})))})
+    (unwrap-panic (as-max-len? (append result {scriptPubKey: (get scriptPubKey entry), value: (get uint32 (unwrap-panic (contract-call? .clarity-bitcoin read-uint32 {txbuff: (get value entry), index: u0})))}) u8))
     result))
 
-(define-private (find-pool-out (entry {scriptPubKey: (buff 128), value: uint}) (result (optional {scriptPubKey: (buff 128), value: uint})))
-  (if (is-eq (get scriptPubKey entry) pool-pubscriptkey)
-    (some entry)
-    result))
-
-(define-read-only (get-tx-value-for-pool-2 (tx {
+(define-read-only (get-outs-for-pool (tx {
     version: (buff 4),
     ins: (list 8
       {outpoint: {hash: (buff 32), index: (buff 4)}, scriptSig: (buff 256), sequence: (buff 4)}),
     outs: (list 8
       {value: (buff 8), scriptPubKey: (buff 128)}),
     locktime: (buff 4)}))
-    (ok (fold find-pool-out-2 (get outs tx) none)))
+    (ok (fold find-pool-outs (get outs tx) (list))))
 
-(define-read-only (get-tx-value-for-pool (tx (buff 1024)))
-  (let ((transaction (unwrap! (contract-call? .clarity-bitcoin parse-tx tx) ERR_FAILED_TO_PARSE_TX)))
-    (ok (fold find-pool-out (get outs transaction) none))))
+(define-read-only (get-tx-value-for-pool (tx {
+    version: (buff 4),
+    ins: (list 8
+      {outpoint: {hash: (buff 32), index: (buff 4)}, scriptSig: (buff 256), sequence: (buff 4)}),
+    outs: (list 8
+      {value: (buff 8), scriptPubKey: (buff 128)}),
+    locktime: (buff 4)}))
+    (ok (fold add-value (fold find-pool-outs (get outs tx) (list)) u0)))
 
 (define-private (map-add-tx (height uint) (tx (buff 1024)) (pool-out-value uint) (price uint))
   (let ((entry {txid: (contract-call? .clarity-bitcoin get-txid tx), value: pool-out-value})
@@ -49,17 +56,22 @@
       (ok (map-insert reward-txs height (list entry))))))
 
 
-(define-read-only (oracle-by-hash (id-header-hash (buff 32)))
-  (get amount (print (at-block id-header-hash (contract-call? .oracle get-price "artifix-binance" "STX-BTC")))))
+(define-private (oracle-by-hash (id-header-hash (buff 32)))
+  (let ((price (at-block id-header-hash (contract-call? .oracle get-price "artifix-binance" "STX-BTC"))))
+    (var-set last-price price)
+    (get amount (print price))))
 
-(define-read-only (oracle-get-price-stx-btc (height uint))
+(define-private (oracle-get-price-stx-btc (height uint))
   (match (get-block-info? id-header-hash height)
     hash (oracle-by-hash hash)
     (match (get-block-info? id-header-hash (- height u1))
       hash-1 (oracle-by-hash hash-1)
       (match (get-block-info? id-header-hash (- height u2))
         hash-2 (oracle-by-hash hash-2)
-        none))))
+        (get amount (var-get last-price))))))
+
+(define-public (wrapped-oracle-get-price-stx-btc (height uint))
+  (ok (oracle-get-price-stx-btc)))
 
 ;; any user can submit a tx that contains payments into the pool's address
 ;; the value of the tx is added to the block
@@ -74,18 +86,20 @@
     (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint })
     )
   (let ((tx-buff (contract-call? .clarity-bitcoin concat-tx tx)))
-    (match (contract-call? .clarity-bitcoin was-tx-mined-2? block tx-buff proof)
+    (match (contract-call? .clarity-bitcoin was-tx-mined block tx-buff proof)
       result
         (begin
           (asserts! result ERR_VERIFICATION_FAILED)
-          (let ((pool-out (unwrap! (unwrap! (get-tx-value-for-pool-2 tx) ERR_FAILED_TO_PARSE_TX) ERR_TX_NOT_FOR_POOL))
-            (price (unwrap! (oracle-get-price-stx-btc (get height block)) ERR_FAILED_TO_GET_PRICE)))
-              ;; add tx value to corresponding cycle
-              (match (map-add-tx (get height block) tx-buff (get value pool-out) price)
-                result-map-add (begin
-                  (asserts! result-map-add ERR_TX_ADD_FAILED)
-                  (ok true))
-                error-map-add (err error-map-add))))
+          (let ((out-value (unwrap! (get-tx-value-for-pool tx) ERR_FAILED_TO_PARSE_TX)))
+            (if (> out-value u0)
+              (let ((price (unwrap! (oracle-get-price-stx-btc (get height block)) ERR_FAILED_TO_GET_PRICE)))
+                ;; add tx value to corresponding cycle
+                (match (map-add-tx (get height block) tx-buff out-value price)
+                  result-map-add (begin
+                    (asserts! result-map-add ERR_TX_ADD_FAILED)
+                    (ok true))
+                  error-map-add (err (* error-map-add u2000))))
+              ERR_TX_NOT_FOR_POOL)))
       error (err (* error u1000)))))
 
 ;; any user can submit a tx that contains payments into the pool's address
@@ -100,7 +114,7 @@
       locktime: (buff 4)})
     (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
   (let ((tx-buff (contract-call? .clarity-bitcoin concat-tx tx)))
-    (contract-call? .clarity-bitcoin was-tx-mined-2? block tx-buff proof)))
+    (contract-call? .clarity-bitcoin was-tx-mined block tx-buff proof)))
 
 (define-read-only (get-rewards (cycle uint))
   (default-to u0 (map-get? rewards-per-cycle cycle)))
