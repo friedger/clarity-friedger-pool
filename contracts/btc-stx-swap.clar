@@ -4,7 +4,7 @@
 
 (define-private (find-out (entry {scriptPubKey: (buff 128), value: (buff 8)}) (result {pubscriptkey: (buff 40), out: (optional {scriptPubKey: (buff 128), value: uint})}))
   (if (is-eq (get scriptPubKey entry) (get pubscriptkey result))
-    (merge result {out: (some {scriptPubKey: (get scriptPubKey entry), value: (get uint32 (unwrap-panic (contract-call? .clarity-bitcoin read-uint32 {txbuff: (get value entry), index: u0})))})})
+    (merge result {out: (some {scriptPubKey: (get scriptPubKey entry), value: (get uint32 (unwrap-panic (contract-call? 'ST33GW755MQQP6FZ58S423JJ23GBKK5ZKH3MGR55N.clarity-bitcoin-v5 read-uint32 {txbuff: (get value entry), index: u0})))})})
     result))
 
 (define-public (get-out-value (tx {
@@ -47,8 +47,8 @@
       locktime: (buff 4)})
     (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
   (let ((swap (unwrap! (map-get? swaps id) ERR_INVALID_ID))
-    (tx-buff (contract-call? .clarity-bitcoin concat-tx tx)))
-    (match (contract-call? .clarity-bitcoin was-tx-mined block tx-buff proof)
+    (tx-buff (contract-call? 'ST33GW755MQQP6FZ58S423JJ23GBKK5ZKH3MGR55N.clarity-bitcoin-v5 concat-tx tx)))
+    (match (contract-call? 'ST33GW755MQQP6FZ58S423JJ23GBKK5ZKH3MGR55N.clarity-bitcoin-v5 was-tx-mined block tx-buff proof)
       result
         (begin
           (asserts! result ERR_VERIFICATION_FAILED)

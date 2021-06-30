@@ -1,29 +1,29 @@
-
 [project]
 name = "clarity-friedger-pool"
+
+[[project.requirements]]
+contract_id = "ST33GW755MQQP6FZ58S423JJ23GBKK5ZKH3MGR55N.clarity-bitcoin-v5"
+
+[contracts.btc-stx-swap]
+path = "contracts/btc-stx-swap.clar"
+depends_on = []
 
 [contracts.clarity-bitcoin]
 path = "contracts/clarity-bitcoin.clar"
 depends_on = []
 
-[contracts.oracle]
-path = "contracts/oracle.clar"
-depends_on = []
+[contracts.friedger-pool-admin]
+path = "contracts/friedger-pool-admin.clar"
+depends_on = ["friedger-pool-audit"]
 
-[contracts.btc-stx-swap]
-path = "contracts/btc-stx-swap.clar"
+[contracts.friedger-pool-audit]
+path = "contracts/friedger-pool-audit.clar"
 depends_on = ["clarity-bitcoin", "oracle"]
 
 [contracts.friedger-pool-audit-compact]
 path = "contracts/friedger-pool-audit-compact.clar"
 depends_on = ["clarity-bitcoin", "oracle"]
 
-[contracts.friedger-pool-audit]
-path = "contracts/friedger-pool-audit.clar"
-depends_on = ["clarity-bitcoin", "oracle"]
-
-[contracts.friedger-pool-admin]
-path = "contracts/friedger-pool-admin.clar"
-depends_on = ["friedger-pool-audit"]
-
-[notebooks]
+[contracts.oracle]
+path = "contracts/oracle.clar"
+depends_on = []
