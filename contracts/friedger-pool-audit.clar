@@ -9,16 +9,15 @@
 
 (define-map rewards-per-cycle uint uint)
 
-(define-data-var last-price (optional (tuple (amount uint) (height uint) (timestamp uint)))
-  (contract-call? .oracle get-price "artifix-binance" "STX-BTC"))
+(define-data-var last-price (tuple (amount uint) (height uint) (timestamp uint))
+  (unwrap! (contract-call? .oracle get-price "artifix-binance" "STX-BTC") ERR_FAILED_TO_GET_PRICE))
 
 ;; Backport of .pox's burn-height-to-reward-cycle
 (define-read-only (burn-height-to-reward-cycle (height uint))
     (let (
         (pox-info (unwrap-panic (contract-call? 'ST000000000000000000002AMW42H.pox get-pox-info)))
     )
-    (/ (- height (get first-burnchain-block-height pox-info)) (get reward-cycle-length pox-info)))
-)
+    (/ (- height (get first-burnchain-block-height pox-info)) (get reward-cycle-length pox-info))))
 
 (define-private (add-value (out {scriptPubKey: (buff 128), value: uint}) (result uint))
   (+ (get value out) result)
@@ -55,20 +54,28 @@
       txs (ok (map-set reward-txs height (unwrap! (as-max-len? (append txs entry) u100) ERR_TOO_MANY_TXS)))
       (ok (map-insert reward-txs height (list entry))))))
 
-
-(define-private (oracle-by-hash (id-header-hash (buff 32)))
-  (let ((price (at-block id-header-hash (contract-call? .oracle get-price "artifix-binance" "STX-BTC"))))
+(define-private (update (price (tuple (amount uint) (height uint) (timestamp uint))) (height uint))
+  (if (> (get height (var-get last-price)) height)
     (var-set last-price price)
-    (get amount (print price))))
+    false))
+
+(define-private (oracle-by-hash (height uint))
+  (match (get-block-info? id-header-hash height)
+    hash (match (at-block hash (contract-call? .oracle get-price "artifix-binance" "STX-BTC"))
+          price (begin
+                  (update price height)
+                  (some (get amount price)))
+          none)
+    none))
 
 (define-private (oracle-get-price-stx-btc (height uint))
-  (match (get-block-info? id-header-hash height)
-    hash (oracle-by-hash hash)
-    (match (get-block-info? id-header-hash (- height u1))
-      hash-1 (oracle-by-hash hash-1)
-      (match (get-block-info? id-header-hash (- height u2))
-        hash-2 (oracle-by-hash hash-2)
-        (get amount (var-get last-price))))))
+  (match (oracle-by-hash height)
+    price price
+    (match (oracle-by-hash (- height u1))
+      price-1 price-1
+      (match (oracle-by-hash (- height u2))
+        price-2 price-2
+        (get amount (print (var-get last-price)))))))
 
 (define-public (wrapped-oracle-get-price-stx-btc (height uint))
   (ok (oracle-get-price-stx-btc)))
@@ -92,7 +99,7 @@
           (asserts! result ERR_VERIFICATION_FAILED)
           (let ((out-value (unwrap! (get-tx-value-for-pool tx) ERR_FAILED_TO_PARSE_TX)))
             (if (> out-value u0)
-              (let ((price (unwrap! (oracle-get-price-stx-btc (get height block)) ERR_FAILED_TO_GET_PRICE)))
+              (let ((price (oracle-get-price-stx-btc (get height block))))
                 ;; add tx value to corresponding cycle
                 (match (map-add-tx (get height block) tx-buff out-value price)
                   result-map-add (begin
@@ -120,8 +127,8 @@
   (default-to u0 (map-get? rewards-per-cycle cycle)))
 
 (define-read-only (get-pool-pubscriptkey)
-  pool-pubscriptkey
-)
+  pool-pubscriptkey)
+
 ;; Error handling
 (define-constant ERR_FAILED_TO_PARSE_TX (err u1))
 (define-constant ERR_VERIFICATION_FAILED (err u2))
