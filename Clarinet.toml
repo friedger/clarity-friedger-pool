@@ -4,6 +4,13 @@ name = "clarity-friedger-pool"
 [[project.requirements]]
 contract_id = "ST33GW755MQQP6FZ58S423JJ23GBKK5ZKH3MGR55N.clarity-bitcoin-v5"
 
+[[project.requirements]]
+contract_id = "ST2PABAF9FTAJYNFZH93XENAJ8FVY99RRM4DF2YCW.sip-10-ft-standard"
+
+[contracts.btc-ft-swap]
+path = "contracts/btc-ft-swap.clar"
+depends_on = []
+
 [contracts.btc-stx-swap]
 path = "contracts/btc-stx-swap.clar"
 depends_on = []
