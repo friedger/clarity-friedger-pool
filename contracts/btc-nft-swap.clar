@@ -1,6 +1,6 @@
-(use-trait fungible-token 'ST2PABAF9FTAJYNFZH93XENAJ8FVY99RRM4DF2YCW.sip-10-ft-standard.ft-trait)
+(use-trait non-fungible-token 'ST2PABAF9FTAJYNFZH93XENAJ8FVY99RRM4DF2YCW.nft-trait.nft-trait)
 (define-constant expiry u100)
-(define-map swaps uint {sats: uint, btc-receiver: (buff 40), amount: uint, ft-receiver: principal, ft-sender: principal, when: uint, done: uint, ft: principal})
+(define-map swaps uint {sats: uint, btc-receiver: (buff 40), nft-id: uint, nft-receiver: principal, nft-sender: principal, when: uint, done: uint, nft: principal})
 (define-data-var next-id uint u0)
 
 (define-private (find-out (entry {scriptPubKey: (buff 128), value: (buff 8)}) (result {pubscriptkey: (buff 40), out: (optional {scriptPubKey: (buff 128), value: uint})}))
@@ -18,24 +18,24 @@
     (ok (fold find-out (get outs tx) {pubscriptkey: pubscriptkey, out: none})))
 
 ;; create a swap between btc and fungible token
-(define-public (create-swap (sats uint) (btc-receiver (buff 40)) (amount uint) (ft-receiver principal) (ft <fungible-token>))
+(define-public (create-swap (sats uint) (btc-receiver (buff 40)) (nft-id uint) (nft-receiver principal) (nft <non-fungible-token>))
   (let ((id (var-get next-id)))
     (asserts! (map-insert swaps id
-      {sats: sats, btc-receiver: btc-receiver, amount: amount, ft-receiver: ft-receiver,
-        ft-sender: tx-sender, when: block-height, done: u0, ft: (contract-of ft)}) ERR_INVALID_ID)
+      {sats: sats, btc-receiver: btc-receiver, nft-id: nft-id, nft-receiver: nft-receiver,
+        nft-sender: tx-sender, when: block-height, done: u0, nft: (contract-of nft)}) ERR_INVALID_ID)
     (var-set next-id (+ id u1))
-    (match (contract-call? ft transfer amount tx-sender (as-contract tx-sender))
+    (match (contract-call? nft transfer nft-id tx-sender (as-contract tx-sender))
       success (ok id)
       error (err (* error u1000)))))
 
 ;; any user can cancle the swap after the expiry period
-(define-public (cancel (id uint) (ft <fungible-token>))
+(define-public (cancel (id uint) (nft <non-fungible-token>))
   (let ((swap (unwrap! (map-get? swaps id) ERR_INVALID_ID)))
-    (asserts! (is-eq (contract-of ft) (get ft swap)) ERR_INVALID_FUNGIBLE_TOKEN)
+    (asserts! (is-eq (contract-of nft) (get nft swap)) ERR_INVALID_NFT)
     (asserts! (< (+ (get when swap) expiry) block-height) ERR_TOO_EARLY)
     (asserts! (is-eq (get done swap) u0) ERR_ALREADY_DONE)
     (asserts! (map-set swaps id (merge swap {done: u1})) ERR_NATIVE_FAILURE)
-    (as-contract (contract-call? ft transfer (get amount swap) tx-sender (get ft-sender swap)))))
+    (as-contract (contract-call? nft transfer (get nft-id swap) tx-sender (get nft-sender swap)))))
 
 ;; any user can submit a tx that contains the swap
 (define-public (submit-swap
@@ -48,7 +48,7 @@
         {value: (buff 8), scriptPubKey: (buff 128)}),
       locktime: (buff 4)})
     (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint })
-    (ft <fungible-token>))
+    (nft <non-fungible-token>))
   (let ((swap (unwrap! (map-get? swaps id) ERR_INVALID_ID))
     (tx-buff (contract-call? 'ST33GW755MQQP6FZ58S423JJ23GBKK5ZKH3MGR55N.clarity-bitcoin-v5 concat-tx tx)))
     (match (contract-call? 'ST33GW755MQQP6FZ58S423JJ23GBKK5ZKH3MGR55N.clarity-bitcoin-v5 was-tx-mined block tx-buff proof)
@@ -59,9 +59,9 @@
           (match (get out (unwrap! (get-out-value tx (get btc-receiver swap)) ERR_NATIVE_FAILURE))
             out (if (>= (get value out) (get sats swap))
               (begin
-                    (asserts! (is-eq (contract-of ft) (get ft swap)) ERR_INVALID_FUNGIBLE_TOKEN)
+                    (asserts! (is-eq (contract-of nft) (get nft swap)) ERR_INVALID_NFT)
                     (asserts! (map-set swaps id (merge swap {done: u1})) ERR_NATIVE_FAILURE)
-                    (as-contract (contract-call? ft transfer (get amount swap) tx-sender (get ft-receiver swap))))
+                    (as-contract (contract-call? nft transfer (get nft-id swap) tx-sender (get nft-receiver swap))))
               ERR_TX_VALUE_TOO_SMALL)
            ERR_TX_NOT_FOR_RECEIVER))
       error (err (* error u1000)))))
@@ -73,5 +73,5 @@
 (define-constant ERR_TX_VALUE_TOO_SMALL (err u5))
 (define-constant ERR_TX_NOT_FOR_RECEIVER (err u6))
 (define-constant ERR_ALREADY_DONE (err u7))
-(define-constant ERR_INVALID_FUNGIBLE_TOKEN (err u8))
+(define-constant ERR_INVALID_NFT (err u8))
 (define-constant ERR_NATIVE_FAILURE (err u99))
