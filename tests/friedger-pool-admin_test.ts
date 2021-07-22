@@ -7,6 +7,24 @@ import {
   assertEquals,
 } from "../src/deps.ts";
 
+function poxAllowContractCaller(deployer: Account, wallet: Account) {
+  return Tx.contractCall(
+    "ST000000000000000000002AMW42H.pox",
+    "allow-contract-caller",
+    [types.principal(deployer.address + ".friedger-pool-admin"), types.none()],
+    wallet.address
+  );
+}
+
+function poolAllowContractCaller(deployer: Account, wallet: Account) {
+  return Tx.contractCall(
+    "friedger-pool-admin",
+    "allow-contract-caller",
+    [types.principal(deployer.address + ".friedger-pool-admin")],
+    wallet.address
+  );
+}
+
 Clarinet.test({
   name: "Ensure that user can pay in",
   async fn(chain: Chain, accounts: Map<string, Account>) {
@@ -31,22 +49,8 @@ Clarinet.test({
     let deployer = accounts.get("deployer")!;
 
     let block = chain.mineBlock([
-      Tx.contractCall(
-        "friedger-pool-admin",
-        "allow-contract-caller",
-        [types.principal(deployer.address + ".friedger-pool-admin")],
-        wallet_1.address
-      ),
-
-      Tx.contractCall(
-        "ST000000000000000000002AMW42H.pox",
-        "allow-contract-caller",
-        [
-          types.principal(deployer.address + ".friedger-pool-admin"),
-          types.none(),
-        ],
-        wallet_1.address
-      ),
+      poxAllowContractCaller(deployer, wallet_1);
+      poolAllowContractCaller(deployer, wallet_1);
 
       Tx.contractCall(
         "friedger-pool-admin",
@@ -67,8 +71,9 @@ Clarinet.test({
     block.receipts[1].result.expectOk();
     (block.receipts[2].result
       .expectOk()
-      .expectTuple() as any)
-      ["unlock-burn-height"].expectUint(450);
+      .expectTuple() as any)[
+        "unlock-burn-height"
+    ].expectUint(450);
 
     assertEquals(
       chain.callReadOnlyFn(

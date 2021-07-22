@@ -14,7 +14,7 @@ contract_id = "ST2PABAF9FTAJYNFZH93XENAJ8FVY99RRM4DF2YCW.nft-trait"
 path = "contracts/btc-ft-swap.clar"
 depends_on = []
 
-[contracts.btc-mft-swap]
+[contracts.btc-nft-swap]
 path = "contracts/btc-nft-swap.clar"
 depends_on = []
 

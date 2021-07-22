@@ -104,7 +104,7 @@
                 (match (map-add-tx (get height block) tx-buff out-value price)
                   result-map-add (begin
                     (asserts! result-map-add ERR_TX_ADD_FAILED)
-                    (ok true))
+                    (ok {out-value: out-value, price: price}))
                   error-map-add (err (* error-map-add u2000))))
               ERR_TX_NOT_FOR_POOL)))
       error (err (* error u1000)))))

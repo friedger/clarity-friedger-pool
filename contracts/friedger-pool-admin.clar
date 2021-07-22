@@ -194,7 +194,7 @@
     (ok (/ (* user-stxs rewards) total))))
 
 (define-read-only (get-vault-balance (cycle uint))
-  (- (default-to 0 (map-get? vaults cycle))))
+  (default-to 0 (map-get? vaults cycle)))
 
 (define-read-only (get-reward-balance (cycle uint))
   (- (to-int (contract-call? .friedger-pool-audit get-rewards cycle))
