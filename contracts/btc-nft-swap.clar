@@ -1,11 +1,11 @@
-(use-trait non-fungible-token 'ST2PABAF9FTAJYNFZH93XENAJ8FVY99RRM4DF2YCW.nft-trait.nft-trait)
+(use-trait non-fungible-token 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.nft-trait)
 (define-constant expiry u100)
 (define-map swaps uint {sats: uint, btc-receiver: (buff 40), nft-id: uint, nft-receiver: principal, nft-sender: principal, when: uint, done: uint, nft: principal})
 (define-data-var next-id uint u0)
 
 (define-private (find-out (entry {scriptPubKey: (buff 128), value: (buff 8)}) (result {pubscriptkey: (buff 40), out: (optional {scriptPubKey: (buff 128), value: uint})}))
   (if (is-eq (get scriptPubKey entry) (get pubscriptkey result))
-    (merge result {out: (some {scriptPubKey: (get scriptPubKey entry), value: (get uint32 (unwrap-panic (contract-call? 'ST33GW755MQQP6FZ58S423JJ23GBKK5ZKH3MGR55N.clarity-bitcoin-v5 read-uint32 {txbuff: (get value entry), index: u0})))})})
+    (merge result {out: (some {scriptPubKey: (get scriptPubKey entry), value: (get uint32 (unwrap-panic (contract-call? 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.clarity-bitcoin-lib-v1 read-uint32 {txbuff: (get value entry), index: u0})))})})
     result))
 
 (define-public (get-out-value (tx {
@@ -50,8 +50,8 @@
     (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint })
     (nft <non-fungible-token>))
   (let ((swap (unwrap! (map-get? swaps id) ERR_INVALID_ID))
-    (tx-buff (contract-call? 'ST33GW755MQQP6FZ58S423JJ23GBKK5ZKH3MGR55N.clarity-bitcoin-v5 concat-tx tx)))
-    (match (contract-call? 'ST33GW755MQQP6FZ58S423JJ23GBKK5ZKH3MGR55N.clarity-bitcoin-v5 was-tx-mined block tx-buff proof)
+    (tx-buff (contract-call? 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.clarity-bitcoin-lib-v1 concat-tx tx)))
+    (match (contract-call? 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.clarity-bitcoin-lib-v1 was-tx-mined block tx-buff proof)
       result
         (begin
           (asserts! result ERR_VERIFICATION_FAILED)

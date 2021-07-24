@@ -1,6 +1,5 @@
-(use-trait fungible-token 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-10-ft-standard.ft-trait)
 (define-constant expiry u100)
-(define-map swaps uint {sats: uint, btc-receiver: (buff 40), amount: uint, ft-receiver: (optional principal), ft-sender: principal, when: uint, done: uint, ft: principal})
+(define-map swaps uint {sats: uint, btc-receiver: (buff 40), namespace: (buff 20), name: (buff 48), bns-receiver: principal, bns-sender: principal, zonefile-hash: (buff 20), when: uint, done: uint})
 (define-data-var next-id uint u0)
 
 (define-private (find-out (entry {scriptPubKey: (buff 128), value: (buff 8)}) (result {pubscriptkey: (buff 40), out: (optional {scriptPubKey: (buff 128), value: uint})}))
@@ -17,34 +16,27 @@
     locktime: (buff 4)}) (pubscriptkey (buff 40)))
     (ok (fold find-out (get outs tx) {pubscriptkey: pubscriptkey, out: none})))
 
-;; create a swap between btc and fungible token
-(define-public (create-swap (sats uint) (btc-receiver (buff 40)) (amount uint) (ft-receiver (optional principal)) (ft <fungible-token>))
-  (let ((id (var-get next-id)))
+;; create a swap between btc and bns name
+(define-public (create-swap (sats uint) (btc-receiver (buff 40)) (namespace (buff 20)) (name (buff 48)) (bns-receiver principal))
+  (let ((id (var-get next-id))
+    (name-props (unwrap! (contract-call? 'SP000000000000000000002Q6VF78.bns name-resolve namespace name) ERR_INVALID_BNS)))
     (asserts! (map-insert swaps id
-      {sats: sats, btc-receiver: btc-receiver, amount: amount, ft-receiver: ft-receiver,
-        ft-sender: tx-sender, when: block-height, done: u0, ft: (contract-of ft)}) ERR_INVALID_ID)
+      {sats: sats, btc-receiver: btc-receiver, namespace: namespace, name: name, bns-receiver: bns-receiver,
+        bns-sender: tx-sender, zonefile-hash: (get zonefile-hash name-props),
+        when: block-height, done: u0}) ERR_INVALID_ID)
     (var-set next-id (+ id u1))
-    (match (contract-call? ft transfer amount tx-sender (as-contract tx-sender))
+    ;; attention: escrow can only own one name at a time
+    (match (contract-call? 'SP000000000000000000002Q6VF78.bns name-transfer  namespace name (as-contract tx-sender) (some zonefile-hash))
       success (ok id)
       error (err (* error u1000)))))
 
-
-(define-public (set-ft-receiver (id uint))
-  (let ((swap (unwrap! (map-get? swaps id) ERR_INVALID_ID)))
-    (if (is-none (get ft-receiver swap))
-      (begin
-        (asserts! (map-set swaps id (merge swap {ft-receiver: (some tx-sender)})) ERR_NATIVE_FAILURE)
-        (ok true))
-      ERR_ALREADY_DONE)))
-
 ;; any user can cancle the swap after the expiry period
-(define-public (cancel (id uint) (ft <fungible-token>))
+(define-public (cancel (id uint))
   (let ((swap (unwrap! (map-get? swaps id) ERR_INVALID_ID)))
-    (asserts! (is-eq (contract-of ft) (get ft swap)) ERR_INVALID_FUNGIBLE_TOKEN)
     (asserts! (< (+ (get when swap) expiry) block-height) ERR_TOO_EARLY)
     (asserts! (is-eq (get done swap) u0) ERR_ALREADY_DONE)
     (asserts! (map-set swaps id (merge swap {done: u1})) ERR_NATIVE_FAILURE)
-    (as-contract (contract-call? ft transfer (get amount swap) tx-sender (get ft-sender swap)))))
+    (as-contract (contract-call? 'SP000000000000000000002Q6VF78.bns name-transfer (get namespace swap) (get name swap) (get bns-sender swap) (some (get zonefile-hash swap))))))
 
 ;; any user can submit a tx that contains the swap
 (define-public (submit-swap
@@ -56,8 +48,7 @@
       outs: (list 8
         {value: (buff 8), scriptPubKey: (buff 128)}),
       locktime: (buff 4)})
-    (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint })
-    (ft <fungible-token>))
+    (proof { tx-index: uint, hashes: (list 12 (buff 32)), tree-depth: uint }))
   (let ((swap (unwrap! (map-get? swaps id) ERR_INVALID_ID))
     (tx-buff (contract-call? 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.clarity-bitcoin-lib-v1 concat-tx tx)))
     (match (contract-call? 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.clarity-bitcoin-lib-v1 was-tx-mined block tx-buff proof)
@@ -68,9 +59,8 @@
           (match (get out (unwrap! (get-out-value tx (get btc-receiver swap)) ERR_NATIVE_FAILURE))
             out (if (>= (get value out) (get sats swap))
               (begin
-                    (asserts! (is-eq (contract-of ft) (get ft swap)) ERR_INVALID_FUNGIBLE_TOKEN)
                     (asserts! (map-set swaps id (merge swap {done: u1})) ERR_NATIVE_FAILURE)
-                    (as-contract (contract-call? ft transfer (get amount swap) tx-sender (unwrap! (get ft-receiver swap) ERR_NO_FT_RECEIVER))))
+                    (as-contract (contract-call? 'SP000000000000000000002Q6VF78.bns name-transfer (get namespace swap) (get name swap) (get bns-receiver swap) none)))
               ERR_TX_VALUE_TOO_SMALL)
            ERR_TX_NOT_FOR_RECEIVER))
       error (err (* error u1000)))))
@@ -82,6 +72,5 @@
 (define-constant ERR_TX_VALUE_TOO_SMALL (err u5))
 (define-constant ERR_TX_NOT_FOR_RECEIVER (err u6))
 (define-constant ERR_ALREADY_DONE (err u7))
-(define-constant ERR_INVALID_FUNGIBLE_TOKEN (err u8))
-(define-constant ERR_NO_FT_RECEIVER (err u9))
+(define-constant ERR_INVALID_BNS (err u8))
 (define-constant ERR_NATIVE_FAILURE (err u99))
