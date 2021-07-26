@@ -1,4 +1,4 @@
-(use-trait fungible-token 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-10-ft-standard.ft-trait)
+(use-trait fungible-token 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
 (define-constant expiry u100)
 (define-map swaps uint {sats: uint, btc-receiver: (buff 40), amount: uint, ft-receiver: (optional principal), ft-sender: principal, when: uint, done: uint, ft: principal})
 (define-data-var next-id uint u0)
@@ -24,7 +24,7 @@
       {sats: sats, btc-receiver: btc-receiver, amount: amount, ft-receiver: ft-receiver,
         ft-sender: tx-sender, when: block-height, done: u0, ft: (contract-of ft)}) ERR_INVALID_ID)
     (var-set next-id (+ id u1))
-    (match (contract-call? ft transfer amount tx-sender (as-contract tx-sender))
+    (match (contract-call? ft transfer amount tx-sender (as-contract tx-sender) (some 0x636174616d6172616e2073776170))
       success (ok id)
       error (err (* error u1000)))))
 
@@ -44,7 +44,7 @@
     (asserts! (< (+ (get when swap) expiry) block-height) ERR_TOO_EARLY)
     (asserts! (is-eq (get done swap) u0) ERR_ALREADY_DONE)
     (asserts! (map-set swaps id (merge swap {done: u1})) ERR_NATIVE_FAILURE)
-    (as-contract (contract-call? ft transfer (get amount swap) tx-sender (get ft-sender swap)))))
+    (as-contract (contract-call? ft transfer (get amount swap) tx-sender (get ft-sender swap) (some 0x72657665727420636174616d6172616e2073776170)))))
 
 ;; any user can submit a tx that contains the swap
 (define-public (submit-swap
@@ -70,7 +70,7 @@
               (begin
                     (asserts! (is-eq (contract-of ft) (get ft swap)) ERR_INVALID_FUNGIBLE_TOKEN)
                     (asserts! (map-set swaps id (merge swap {done: u1})) ERR_NATIVE_FAILURE)
-                    (as-contract (contract-call? ft transfer (get amount swap) tx-sender (unwrap! (get ft-receiver swap) ERR_NO_FT_RECEIVER))))
+                    (as-contract (contract-call? ft transfer (get amount swap) tx-sender (unwrap! (get ft-receiver swap) ERR_NO_FT_RECEIVER) (some 0x636174616d6172616e2073776170))))
               ERR_TX_VALUE_TOO_SMALL)
            ERR_TX_NOT_FOR_RECEIVER))
       error (err (* error u1000)))))
