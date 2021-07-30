@@ -106,7 +106,7 @@
                 (asserts! result ERR_VERIFICATION_FAILED)
                 (asserts! (> value u0) ERR_TX_IGNORED)
                 (asserts! (map-insert rewards-by-tx tx-buff value) ERR_ALREADY_DONE)
-                (let ((ustx (* value (get-price height))))
+                (let ((ustx (/ (* value u1000000) (get-price height))))
                   (asserts! (map-update-rewards-by-height height value ustx) ERR_NATIVE_FAILURE)
                   (match (ft-mint? wrapped-rewards value (var-get reward-admin))
                     success (ok {value: value, ustx: ustx})
@@ -124,7 +124,7 @@
 )
 
 (define-private (update (price (tuple (amount uint) (height uint) (timestamp uint))) (height uint))
-  (if (> (get height (var-get last-price)) height)
+  (if (> height (get height (var-get last-price)))
     (var-set last-price price)
     false))
 
