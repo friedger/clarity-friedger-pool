@@ -8,7 +8,7 @@
   (ok (map-get? balances user)))
 
 (define-read-only (get-depot-info)
-  {tokens: (contract-call? 'SP1JSH2FPE8BWNTP228YZ1AZZ0HE0064PS6RXRAY4.fpwr-v02 get-balance (as-contract tx-sender)),
+  {tokens: (contract-call? 'SP1JSH2FPE8BWNTP228YZ1AZZ0HE0064PS6RXRAY4.fpwr-v03 get-balance (as-contract tx-sender)),
    total-rewards: (var-get total-rewards),
    total-claimed: (var-get total-claimed)})
 
@@ -17,7 +17,7 @@
     (amount (default-to u0 (map-get? balances user))))
     (var-set total-claimed (+ amount (var-get total-claimed)))
     (if (> amount u0)
-      (contract-call? 'SP1JSH2FPE8BWNTP228YZ1AZZ0HE0064PS6RXRAY4.fpwr-v02 transfer amount tx-sender user none)
+      (contract-call? 'SP1JSH2FPE8BWNTP228YZ1AZZ0HE0064PS6RXRAY4.fpwr-v03 transfer amount tx-sender user none)
       (err u1))))
 
 (define-private (add-reward (reward {user: principal, amount: uint}))
@@ -28,4 +28,9 @@
 (define-public (add-rewards (rewards (list 200 {user: principal, amount: uint})))
   (if (is-eq tx-sender admin)
     (ok (map add-reward rewards))
+    (err u403)))
+
+(define-public (update-reward-admin (new-admin principal))
+  (if (is-eq tx-sender admin)
+    (contract-call? 'SP1JSH2FPE8BWNTP228YZ1AZZ0HE0064PS6RXRAY4.fpwr-v03 update-reward-admin new-admin)
     (err u403)))
