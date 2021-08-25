@@ -8,7 +8,7 @@
   (ok (map-get? balances user)))
 
 (define-read-only (get-depot-info)
-  {tokens: (contract-call? 'SP1JSH2FPE8BWNTP228YZ1AZZ0HE0064PS6RXRAY4.fpwr-v03 get-balance (as-contract tx-sender)),
+  {tokens: (contract-call? 'SP1JSH2FPE8BWNTP228YZ1AZZ0HE0064PS6RXRAY4.fpwr-v04 get-balance (as-contract tx-sender)),
    total-rewards: (var-get total-rewards),
    total-claimed: (var-get total-claimed)})
 
@@ -17,13 +17,17 @@
     (amount (default-to u0 (map-get? balances user))))
     (var-set total-claimed (+ amount (var-get total-claimed)))
     (if (> amount u0)
-      (contract-call? 'SP1JSH2FPE8BWNTP228YZ1AZZ0HE0064PS6RXRAY4.fpwr-v03 transfer amount tx-sender user none)
-      (err u1))))
+      (begin
+        (map-set balances user u0)
+        (as-contract (contract-call? 'SP1JSH2FPE8BWNTP228YZ1AZZ0HE0064PS6RXRAY4.fpwr-v04 transfer amount tx-sender user none))
+      )
+      (err u100))))
 
-(define-private (add-reward (reward {user: principal, amount: uint}))
-  (let ((amount (default-to u0 (map-get? balances (get user reward)))))
-    (var-set total-rewards (+ amount (var-get total-rewards)))
-    (map-set balances (get user reward) (+ amount (get amount reward)))))
+(define-private (add-reward (details {user: principal, amount: uint}))
+  (let ((user-amount (default-to u0 (map-get? balances (get user details))))
+    (reward-amount (get amount details)))
+    (var-set total-rewards (+ reward-amount (var-get total-rewards)))
+    (map-set balances (get user details) (+ reward-amount user-amount))))
 
 (define-public (add-rewards (rewards (list 200 {user: principal, amount: uint})))
   (if (is-eq tx-sender admin)
@@ -32,5 +36,5 @@
 
 (define-public (update-reward-admin (new-admin principal))
   (if (is-eq tx-sender admin)
-    (contract-call? 'SP1JSH2FPE8BWNTP228YZ1AZZ0HE0064PS6RXRAY4.fpwr-v03 update-reward-admin new-admin)
+    (contract-call? 'SP1JSH2FPE8BWNTP228YZ1AZZ0HE0064PS6RXRAY4.fpwr-v04 update-reward-admin new-admin)
     (err u403)))
