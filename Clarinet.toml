@@ -19,6 +19,9 @@ contract_id = "SP1JSH2FPE8BWNTP228YZ1AZZ0HE0064PS6RXRAY4.fpwr-v03"
 [[project.requirements]]
 contract_id = "SP1JSH2FPE8BWNTP228YZ1AZZ0HE0064PS6RXRAY4.fpwr-v04"
 
+[[project.requirements]]
+contract_id = "SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.send-many-memo"
+
 [contracts.btc-ft-swap]
 path = "contracts/btc-ft-swap.clar"
 depends_on = []
@@ -29,6 +32,10 @@ depends_on = []
 
 [contracts.btc-stx-swap]
 path = "contracts/btc-stx-swap.clar"
+depends_on = []
+
+[contracts.stx-ft-swap]
+path = "contracts/stx-ft-swap.clar"
 depends_on = []
 
 [contracts.clarity-bitcoin]
