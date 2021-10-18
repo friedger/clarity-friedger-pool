@@ -54,5 +54,5 @@ async function fillContract(userData: { private: string }, amount: number) {
 
 (async () => {
   await allowContractCaller(user);
-  await fillContract(user, 5000000);
+  await fillContract(user, 5000);
 })();
